@@ -1,0 +1,45 @@
+Signal:
+Um sinal é uma notificação assíncrona enviada a um processo para o avisar de que um evento externo acabou de acontecer.
+Pensa num sinal exatamente como pensarias numa interrupção de hardware num microcontrolador mas a nível do sistema operativo Linux.
+
+Usasse Sinais quando: Precisas que o teu programa seja capaz de largar tudo o que está a fazer nesse pentelhésimo de segundo para reagir 
+a um evento crítico (ex: um temporizador que expirou, um pedido de encerramento do utilizador, ou para suspender temporariamente a execução).
+
+Ex: com um microcontrolador
+Se estiveres a desenvolver hardware dedicado — por exemplo, a programar um microcontrolador dedicado para detetar quando uma gaveta é aberta 
+usando um contacto magnético (reed switch) —, tens duas formas de o fazer:
+
+1-> Polling: Ficar num ciclo infinito a verificar if (gaveta == ABERTA). Isto consome muito processamento, bloqueia o código e impede-te de fazer 
+outras coisas em simultâneo (como rodar um motor de passo de forma fluida)
+
+2-> Interrupções de Hardware: Dizes ao processador para continuar a executar a sua rotina normal, mas se o pino do reed switch mudar de estado,
+o processador "larga" o que está a fazer nesse milissegundo, salta para uma rotina de serviço de interrupção (ISR) para parar os motores, e depois
+regressa ao código principal onde tinha ficado.
+
+A tradução dos conceitos de eletrónica/hardware para a tua aula de Sistemas Embebidos é direta:
+
+-> O Sinal (ex: SIGINT, SIGUSR1, SIGTERM): É o evento que avisa o teu programa de que algo aconteceu, tal como um flanco de subida num pino do microcontrolador.
+
+-> A função sigaction(): É o equivalente à configuração de um registo de interrupção ou à chamada de um attachInterrupt(). É como avisas o Linux de que o teu programa
+ quer "escutar" aquele pino virtual.
+
+-> O Signal Handler: É a tua ISR (Interrupt Service Routine). É a função C que o sistema operativo obriga o teu programa a executar instantaneamente assim que o sinal
+é recebido, interrompendo o ciclo main().
+
+-> O comando / função kill(): Apesar do nome infeliz, não serve só para "matar" processos. Serve para enviar um sinal a outro programa. É o equivalente a um microcontrolador 
+aplicar um pulso elétrico no pino de outro dispositivo para o avisar de que terminou uma tarefa.
+
+O grande motivo pelo qual isto é obrigatório em sistemas reais:
+
+-> Imagina que tens um programa em C que está a meio de atualizar dados cruciais num mmotor.Se o utilizador fechar abruptamente a janela do terminal ou carregar em CTRL+C, 
+o Linux, por defeito, aborta imediatamente o programa, o que pode deixar os motores energizados incorretamente ou os dados corrompidos. 
+e programares o teu código para apanhar esse sinal SIGINT (gerado pelo teclado) usando o sigaction(), tu tomas o controlo. O teu programa salta para o handler, 
+onde tens o tempo necessário para desativar as bobinas dos motores, guardar o estado no ficheiro e só depois terminar o programa graciosamente usando exit().
+
+Threads:
+Usa Threads quando: O teu programa tem de fazer duas ou mais tarefas distintas ao mesmo tempo (ex: ler sensores de um lado, atualizar dados noutro)
+sem que uma bloqueie a outra.
+Para que servem na prática: Servem para paralelismo real. Imagina que estás a desenhar o software para um distribuidor de medicamentos. Precisas de
+manter um motor de passo a rodar de forma perfeitamente fluida e, no exato mesmo milissegundo, precisas de ficar à escuta de um cartão num leitor RFID. 
+Num programa normal e sequencial, o código ficaria bloqueado à espera que o cartão fosse lido, e o motor ia parar de rodar. Com threads, crias uma 
+Thread A dedicada exclusivamente a rodar o motor, e uma Thread B dedicada a ler o RFID. Ambas executam em simultâneo.
